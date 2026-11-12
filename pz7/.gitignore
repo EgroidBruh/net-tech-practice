@@ -10,7 +10,8 @@ data/
 docs/
 scripts/
 tests/ 
-README.MD 
+README.md
 *.save
 .pyc
 requirements-dev.txt
+planner/security.py
