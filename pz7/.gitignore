@@ -4,6 +4,7 @@ __pycache__/
 *.py[cod]
 .pytest_cache/
 test/*
-test
-planner
-planner/*
+docs/ 
+README.md
+requirements-dev.txt
+tests/ 
