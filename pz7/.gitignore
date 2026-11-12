@@ -13,3 +13,4 @@ tests/
 README.MD 
 *.save
 .pyc
+requirements-dev.txt
