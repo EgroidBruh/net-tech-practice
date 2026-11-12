@@ -1,0 +1,13 @@
+# Байткод и кэш Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Виртуальные окружения
+.venv/
+venv/
+
+pz6/docs/
+pz6/tests/
+pz6/README.md
+pz6/requirements-dev.txt
