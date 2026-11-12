@@ -1,0 +1,6 @@
+services:
+  app:
+    build: .
+    container_name: app_pz5
+    ports:
+      - "8000:8000"

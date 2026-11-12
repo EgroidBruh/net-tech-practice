@@ -3,7 +3,7 @@ from pathlib import Path as FilePath
 from fastapi import APIRouter, Depends, HTTPException, Path, Request, status
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
-from model import Todo, TodoItem
+from model import Todo
 
 
 todo_router = APIRouter()
@@ -43,34 +43,3 @@ async def get_single_todo(
             )
 
     raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=NOT_FOUND)
-
-
-@todo_router.put("/todo/{todo_id}")
-async def update_todo(
-    todo_data: TodoItem,
-    todo_id: int = Path(..., title="ID задачи для обновления"),
-) -> dict:
-    for todo in todo_list:
-        if todo.id == todo_id:
-            todo.item = todo_data.item
-            return {"message": "Егор, задача успешно обновлена!"}
-
-    raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=NOT_FOUND)
-
-
-@todo_router.delete("/todo/{todo_id}")
-async def delete_single_todo(
-    todo_id: int = Path(..., title="ID задачи для удаления"),
-) -> dict:
-    for index, todo in enumerate(todo_list):
-        if todo.id == todo_id:
-            todo_list.pop(index)
-            return {"message": "Егор, задача успешно удалена!"}
-
-    raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=NOT_FOUND)
-
-
-@todo_router.delete("/todo")
-async def delete_all_todo() -> dict:
-    todo_list.clear()
-    return {"message": "Егор, все задачи успешно удалены!"}
