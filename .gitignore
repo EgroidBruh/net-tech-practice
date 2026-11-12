@@ -1,0 +1,10 @@
+pz4/*.md
+pz4/test/
+pz4/results/
+pz4/verify_curl.py
+pz4/*.docx
+pz4/*.pdf
+pz4/*.zip
+pz4/.venv/
+pz4/__pycache__/
+!README.md
