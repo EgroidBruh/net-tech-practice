@@ -3,7 +3,7 @@ from todo import todo_router
 
 
 app = FastAPI(
-    title="Практическая работа №4"
+    title="Практическая работа №3"
 )
 
 

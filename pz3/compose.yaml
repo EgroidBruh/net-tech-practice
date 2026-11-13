@@ -1,0 +1,15 @@
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: app-pz3
+    ports:
+      - "127.0.0.1:8000:8000"
+    volumes:
+      - ./api.py:/app/api.py
+      - ./model.py:/app/model.py
+      - ./todo.py:/app/todo.py
+    environment:
+      - PYTHONUNBUFFERED=1
+    restart: unless-stopped
