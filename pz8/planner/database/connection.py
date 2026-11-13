@@ -1,35 +1,39 @@
-"""SQLite engine, schema initialization and one session per request."""
+"""MongoDB connection and atomic counters for the existing numeric API IDs."""
 
 import os
-from pathlib import Path
-from collections.abc import Iterator
 
 from fastapi import Request
-from sqlalchemy.engine import Engine, make_url
-from sqlmodel import Session, SQLModel, create_engine
+from pymongo import MongoClient, ReturnDocument
+from pymongo.database import Database
 
 
-def make_engine(database_url: str | None = None) -> Engine:
-    url = make_url(database_url or os.getenv("DATABASE_URL", "sqlite:///./data/planner.db"))
-    if url.get_backend_name() != "sqlite":
-        raise ValueError("DATABASE_URL must use SQLite")
-    return create_engine(
-        url, connect_args={"check_same_thread": False, "timeout": 30},
-        echo=os.getenv("SQL_ECHO", "false").lower() == "true",
+def make_client(database_url: str | None = None) -> MongoClient:
+    return MongoClient(
+        database_url or os.getenv("DATABASE_URL", "mongodb://localhost:27017"),
+        serverSelectionTimeoutMS=5000,
     )
 
 
-def conn(engine: Engine) -> None:
-    # Register both tables before creating the schema.
-    from planner.models.events import Event  # noqa: F401
-    from planner.models.users import UserRecord  # noqa: F401
-
-    filename = engine.url.database
-    if filename and filename != ":memory:":
-        Path(filename).parent.mkdir(parents=True, exist_ok=True)
-    SQLModel.metadata.create_all(engine)
+def conn(client: MongoClient, database_name: str | None = None) -> Database:
+    client.admin.command("ping")
+    database = client[database_name or os.getenv("DATABASE_NAME", "planner")]
+    database.users.create_index("email", unique=True)
+    return database
 
 
-def get_session(request: Request) -> Iterator[Session]:
-    with Session(request.app.state.engine) as session:
-        yield session
+def get_database(request: Request) -> Database:
+    return request.app.state.database
+
+
+def next_id(database: Database, collection: str) -> int:
+    counter = database.counters.find_one_and_update(
+        {"_id": collection}, {"$inc": {"value": 1}},
+        upsert=True, return_document=ReturnDocument.AFTER,
+    )
+    return counter["value"]
+
+
+def as_record(document: dict) -> dict:
+    record = document.copy()
+    record["id"] = record.pop("_id")
+    return record

@@ -3,15 +3,14 @@ FROM python:3.12-slim
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=1 \
-    DATABASE_URL=sqlite:////app/data/planner.db
+    DATABASE_URL=mongodb://mongodb:27017 \
+    DATABASE_NAME=planner
 
 WORKDIR /app
 COPY requirements.txt .
 RUN pip install -r requirements.txt
 
-RUN useradd --create-home --uid 10001 appuser \
-    && mkdir -p /app/data \
-    && chown appuser:appuser /app/data
+RUN useradd --create-home --uid 10001 appuser
 COPY planner ./planner
 USER appuser
 

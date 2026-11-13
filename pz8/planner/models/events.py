@@ -1,19 +1,12 @@
-from pydantic import ConfigDict, field_validator
-from sqlmodel import Column, Field, JSON, SQLModel
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
-class EventBase(SQLModel):
+class EventBase(BaseModel):
     title: str = Field(min_length=1)
     image: str
     description: str
-    tags: list[str] = Field(sa_column=Column(JSON, nullable=False))
+    tags: list[str]
     location: str = Field(min_length=1)
-
-
-class Event(EventBase, table=True):
-    __tablename__ = "events"
-
-    id: int | None = Field(default=None, primary_key=True)
 
 
 class EventCreate(EventBase):
@@ -33,7 +26,7 @@ class EventRead(EventBase):
     id: int
 
 
-class EventUpdate(SQLModel):
+class EventUpdate(BaseModel):
     title: str | None = Field(default=None, min_length=1)
     image: str | None = None
     description: str | None = None

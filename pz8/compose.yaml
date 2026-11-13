@@ -1,12 +1,27 @@
 services:
   planner:
     build: .
-    user: "${LOCAL_UID:-1000}:${LOCAL_GID:-1000}"
     ports:
       - "127.0.0.1:8081:8080"
     environment:
-      DATABASE_URL: sqlite:////app/data/planner.db
-      SQL_ECHO: "false"
-    volumes:
-      - ./data:/app/data
+      DATABASE_URL: mongodb://mongodb:27017
+      DATABASE_NAME: planner
+    depends_on:
+      mongodb:
+        condition: service_healthy
     restart: unless-stopped
+
+  mongodb:
+    image: mongo:7.0
+    volumes:
+      - mongodb_data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok ? quit(0) : quit(1)"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+    restart: unless-stopped
+
+volumes:
+  mongodb_data:
