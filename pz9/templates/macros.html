@@ -1,0 +1,8 @@
+{% macro input(name, label, values, type='text', required=true, maxlength=100, placeholder='') %}
+<div class="mb-3"><label class="form-label" for="{{ name }}">{{ label }}</label>
+<input class="form-control" id="{{ name }}" name="{{ name }}" type="{{ type }}" value="{{ values.get(name, '') }}" {% if required %}required{% endif %} maxlength="{{ maxlength }}" placeholder="{{ placeholder }}" {% if type == 'tel' %}pattern="\+[1-9][0-9]{7,14}"{% endif %}></div>
+{% endmacro %}
+{% macro employee_select(employees, values, name='employee_id', default_id=none) %}
+<label class="form-label" for="{{ name }}">Сотрудник</label><select class="form-select mb-3" name="employee_id" id="{{ name }}" required>
+<option value="">Выберите сотрудника</option>{% for e in employees %}<option value="{{ e.id }}" {% if values.get('employee_id', default_id)|string == e.id|string %}selected{% endif %}>{{ e.last_name }} {{ e.first_name }} · {{ e.position }}</option>{% endfor %}</select>
+{% endmacro %}

@@ -1,0 +1,9 @@
+{% extends 'base.html' %}{% block content %}
+<p class="eyebrow">ОПЕРАТИВНЫЙ ОБЗОР</p><h1 class="mb-2">Всё под контролем</h1><p class="text-secondary mb-4">Сотрудники, расписание и события вашей службы.</p>
+<div class="row g-3 mb-4">{% for title, count, url in [('Сотрудников',employees|length,'employees'),('Смен',shifts|length,'duty'),('Инцидентов',incidents|length,'incidents')] %}
+<div class="col-md-4"><a href="/ui/{{ url }}" class="card p-4 text-decoration-none text-dark"><span class="text-secondary">{{ title }}</span><strong class="display-5 mt-2">{{ count }}</strong></a></div>{% endfor %}</div>
+<div class="card p-4 mb-4"><div class="d-flex flex-wrap justify-content-between gap-3"><div><span class="badge text-bg-success mb-3">Текущий дежурный</span>
+{% if current %}<h2>{{ current.name }}</h2><a href="tel:{{ current.phone_number }}">{{ current.phone_number }}</a><p class="text-secondary mt-2 mb-0">{{ 'По расписанию' if current.source == 'schedule' else 'Дежурный по умолчанию' }}</p>
+{% else %}<h2>Дежурный не назначен</h2><p class="text-secondary">Добавьте смену или выберите старшего смены по умолчанию.</p>{% endif %}</div><div><a class="btn btn-primary" href="/ui/duty">Настроить дежурства</a></div></div></div>
+<h2 class="h4 mb-3">Последние инциденты</h2>{% if incidents %}<div class="list-group">{% for i in incidents[:5] %}<a class="list-group-item list-group-item-action p-3" href="/ui/incidents/{{ i.id }}"><span class="badge text-bg-{{ 'danger' if i.severity == 'CRITICAL' else 'warning' if i.severity == 'WARNING' else 'info' }} me-2">{{ i.severity }}</span>{{ i.title }}<span class="float-md-end text-secondary small">{{ i.created_at|localtime }}</span></a>{% endfor %}</div>{% else %}<div class="card p-4 text-secondary">Инцидентов пока нет.</div>{% endif %}
+{% endblock %}

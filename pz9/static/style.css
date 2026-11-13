@@ -1,0 +1,13 @@
+body { background: #f3f5f8; color: #192435; }
+.navbar { padding: 1.3rem 0; }
+.brand-dot { color: #5cdbb2; margin-left: .5rem; font-size: .65em; }
+h1 { font-weight: 750; letter-spacing: -.035em; }
+.eyebrow { color: #536b86; font-size: .72rem; font-weight: 700; letter-spacing: .15em; }
+.card { border: 1px solid #e3e8ef; border-radius: 1rem; box-shadow: 0 3px 10px #16253c04; }
+.btn-primary { background: #2759bd; border-color: #2759bd; }
+.form-control, .form-select, .btn { border-radius: .55rem; }
+.table>:not(caption)>*>* { padding: 1rem .65rem; }
+.description { white-space: pre-wrap; overflow-wrap: anywhere; }
+td { overflow-wrap: anywhere; }
+a { text-underline-offset: 3px; }
+footer { margin-top: 2rem; }
