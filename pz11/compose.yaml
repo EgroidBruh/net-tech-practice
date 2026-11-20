@@ -1,0 +1,72 @@
+name: duty-mvp
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: duty
+      POSTGRES_USER: duty
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-duty_dev_password}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U duty -d duty"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+  app:
+    build: .
+    environment:
+      DATABASE_URL: postgresql+psycopg://duty:${POSTGRES_PASSWORD:-duty_dev_password}@db:5432/duty
+      UI_TIMEZONE: ${UI_TIMEZONE:-Asia/Yekaterinburg}
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:8000:8000"
+    command: &app-command ["sh", "-c", "python -m database && exec uvicorn main:app --host 0.0.0.0 --port 8000"]
+  test-db:
+    profiles: [test]
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: duty
+      POSTGRES_USER: duty
+      POSTGRES_PASSWORD: duty_test_password
+    tmpfs:
+      - /var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD", "pg_isready", "-h", "127.0.0.1", "-U", "duty", "-d", "duty"]
+      interval: 2s
+      timeout: 5s
+      retries: 15
+  test-app:
+    profiles: [test]
+    build: .
+    environment:
+      DATABASE_URL: postgresql+psycopg://duty:duty_test_password@test-db:5432/duty
+      UI_TIMEZONE: ${UI_TIMEZONE:-Asia/Yekaterinburg}
+    depends_on:
+      test-db:
+        condition: service_healthy
+    command: *app-command
+    healthcheck:
+      test: ["CMD", "python", "-c", "from urllib.request import urlopen; urlopen('http://127.0.0.1:8000/employees', timeout=3).close()"]
+      interval: 2s
+      timeout: 5s
+      retries: 15
+  tests:
+    profiles: [test]
+    image: python:3.12-slim
+    working_dir: /suite
+    environment:
+      BASE_URL: http://test-app:8000
+      REPORT_PATH: /results/results.json
+      PYTHONDONTWRITEBYTECODE: "1"
+    volumes:
+      - ./tests:/suite:ro
+      - ./test-results:/results
+    depends_on:
+      test-app:
+        condition: service_healthy
+    command: ["python", "test_endpoints.py"]
+volumes:
+  postgres_data:
