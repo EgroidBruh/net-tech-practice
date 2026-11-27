@@ -9,6 +9,6 @@ class PatchModel(BaseModel):
     def reject_nulls(cls, data):
         if isinstance(data, dict):
             for name, value in data.items():
-                if value is None and name != "middle_name":
+                if value is None and name not in {"middle_name", "sip_extension"}:
                     raise ValueError(f"Поле {name} не может быть null")
         return data

@@ -2,7 +2,7 @@ from sqladmin import Admin, ModelView
 
 from database import SessionLocal
 from models.tables import (
-    DefaultDutyRow, EmployeeRow, IncidentEventRow, IncidentRow, ShiftRow,
+    DefaultDutyRow, EmployeeRow, IncidentEventRow, IncidentRow, ShiftRow, NotificationRow,
 )
 
 
@@ -47,8 +47,14 @@ class IncidentEventAdmin(ReadOnlyView, model=IncidentEventRow):
     column_sortable_list = [IncidentEventRow.occurred_at]
 
 
+class NotificationAdmin(ReadOnlyView, model=NotificationRow):
+    name = "Телефонное оповещение"
+    name_plural = "Телефонные оповещения"
+    column_sortable_list = [NotificationRow.created_at, NotificationRow.status]
+
+
 def setup_admin(app, session_maker=SessionLocal):
     admin = Admin(app, session_maker=session_maker, title="Таблицы БД")
-    for view in (EmployeeAdmin, ShiftAdmin, DefaultDutyAdmin, IncidentAdmin, IncidentEventAdmin):
+    for view in (EmployeeAdmin, ShiftAdmin, DefaultDutyAdmin, IncidentAdmin, IncidentEventAdmin, NotificationAdmin):
         admin.add_view(view)
     return admin

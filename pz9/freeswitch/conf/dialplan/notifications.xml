@@ -1,0 +1,11 @@
+<include>
+  <context name="notifications">
+    <extension name="critical-incident">
+      <condition field="destination_number" expression="^9900$">
+        <action application="set" data="playback_terminators=none" />
+        <action application="playback" data="/opt/duty/sounds/critical-incident.wav" />
+        <action application="park" />
+      </condition>
+    </extension>
+  </context>
+</include>

@@ -29,6 +29,7 @@ class EmployeeRow(Base):
     role: Mapped[str] = mapped_column(String(20))
     work_phone: Mapped[str] = mapped_column(String(16), unique=True)
     mobile_phone: Mapped[str] = mapped_column(String(16), unique=True)
+    sip_extension: Mapped[str | None] = mapped_column(String(10), unique=True, index=True)
     created_at: Mapped[datetime] = mapped_column(UTCDateTime(), default=now)
     __table_args__ = (CheckConstraint("work_phone <> mobile_phone"),)
 
@@ -64,3 +65,27 @@ class IncidentEventRow(Base):
     incident_id: Mapped[UUID] = mapped_column(ForeignKey("incidents.id"), index=True)
     severity: Mapped[str] = mapped_column(String(20))
     occurred_at: Mapped[datetime] = mapped_column(UTCDateTime(), default=now)
+
+
+class NotificationRow(Base):
+    """Transactional outbox and a local copy of the telephone service's result."""
+    __tablename__ = "notifications"
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    incident_id: Mapped[UUID] = mapped_column(ForeignKey("incidents.id"), index=True)
+    employee_id: Mapped[UUID | None] = mapped_column()
+    employee_name: Mapped[str | None] = mapped_column(String(302))
+    phone_number: Mapped[str | None] = mapped_column(String(16))
+    sip_extension: Mapped[str | None] = mapped_column(String(10))
+    parent_id: Mapped[UUID | None] = mapped_column(unique=True)
+    confirmed_at: Mapped[datetime | None] = mapped_column(UTCDateTime())
+    dtmf_digit: Mapped[str | None] = mapped_column(String(1))
+    duty_source: Mapped[str | None] = mapped_column(String(20))
+    status: Mapped[str] = mapped_column(String(20), default="PENDING", index=True)
+    delivery_attempts: Mapped[int] = mapped_column(default=0)
+    last_error: Mapped[str | None] = mapped_column(Text)
+    hangup_cause: Mapped[str | None] = mapped_column(String(100))
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime(), default=now)
+    updated_at: Mapped[datetime] = mapped_column(UTCDateTime(), default=now)
+    next_attempt_at: Mapped[datetime] = mapped_column(UTCDateTime(), default=now, index=True)
+    answered_at: Mapped[datetime | None] = mapped_column(UTCDateTime())
+    finished_at: Mapped[datetime | None] = mapped_column(UTCDateTime())

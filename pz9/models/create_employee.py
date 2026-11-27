@@ -7,6 +7,7 @@ from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator, mo
 from models.patch import PatchModel
 
 Phone = Annotated[str, Field(pattern=r"^\+[1-9][0-9]{7,14}$")]
+SipExtension = Annotated[str, Field(pattern=r"^[0-9]{2,10}$")]
 
 
 class Role(StrEnum):
@@ -27,6 +28,7 @@ class EmployeeCreate(BaseModel):
     role: Role = Role.SPECIALIST
     work_phone: Phone
     mobile_phone: Phone
+    sip_extension: SipExtension | None = Field(default=None, description="Внутренний номер FreeSWITCH, например 1000")
 
     @field_validator("email")
     @classmethod
@@ -55,3 +57,4 @@ class EmployeePatch(PatchModel):
     role: Role | None = None
     work_phone: Phone | None = None
     mobile_phone: Phone | None = None
+    sip_extension: SipExtension | None = None

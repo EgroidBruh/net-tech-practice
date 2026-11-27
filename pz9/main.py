@@ -7,7 +7,7 @@ from routes.register_incident import router as incidents_router
 from routes.web import router as web_router
 from admin import setup_admin
 
-app = FastAPI(title="Сервис дежурств — MVP", version="0.2.0")
+app = FastAPI(title="Сервис дежурств и телефонного оповещения", version="0.3.0")
 app.mount("/static", StaticFiles(directory=Path(__file__).parent / "static"), name="static")
 app.include_router(employees_router)
 app.include_router(duty_router)

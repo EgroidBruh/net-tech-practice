@@ -4,7 +4,7 @@ from sqlalchemy import select, or_, text, delete
 from fastapi.exceptions import RequestValidationError
 from pydantic import ValidationError
 from sqlalchemy.exc import IntegrityError
-from models.tables import EmployeeRow, ShiftRow, DefaultDutyRow, IncidentRow, IncidentEventRow
+from models.tables import EmployeeRow, ShiftRow, DefaultDutyRow, IncidentRow, IncidentEventRow, NotificationRow
 from models.current_duty import CurrentDuty, ShiftCreate
 from models.create_employee import Role, EmployeeCreate
 
@@ -34,6 +34,8 @@ def create_employee(db, data):
     phones = [data.work_phone, data.mobile_phone]
     if db.scalar(select(EmployeeRow.id).where(or_(EmployeeRow.work_phone.in_(phones), EmployeeRow.mobile_phone.in_(phones)))):
         raise HTTPException(409, "Телефон уже зарегистрирован")
+    if data.sip_extension and db.scalar(select(EmployeeRow.id).where(EmployeeRow.sip_extension == data.sip_extension)):
+        raise HTTPException(409, "Внутренний SIP-номер уже зарегистрирован")
     row = EmployeeRow(**data.model_dump())
     db.add(row)
     commit(db)
@@ -71,7 +73,53 @@ def current_duty(db):
     row = db.get(EmployeeRow, shift.employee_id if shift else default.employee_id) if shift or default else None
     if row is None:
         raise HTTPException(503, "Не найден ответственный специалист")
-    return CurrentDuty(employee_id=row.id, name=" ".join(filter(None, [row.last_name, row.first_name, row.middle_name])), phone_number=row.mobile_phone, source="schedule" if shift else "default", resolved_at=now)
+    return CurrentDuty(employee_id=row.id, name=" ".join(filter(None, [row.last_name, row.first_name, row.middle_name])), phone_number=row.mobile_phone, sip_extension=row.sip_extension, source="schedule" if shift else "default", resolved_at=now)
+
+
+def queue_notification(db, row):
+    notification = NotificationRow(incident_id=row.id)
+    try:
+        duty = current_duty(db)
+        notification.employee_id = duty.employee_id
+        notification.employee_name = duty.name
+        notification.phone_number = duty.phone_number
+        notification.sip_extension = duty.sip_extension
+        notification.duty_source = duty.source
+        if not duty.sip_extension:
+            raise HTTPException(503, "У дежурного не задан внутренний SIP-номер")
+    except HTTPException as exc:
+        if exc.status_code != 503:
+            raise
+        notification.status = "FAILED"
+        notification.last_error = str(exc.detail)
+        notification.finished_at = datetime.now(timezone.utc)
+    db.add(notification)
+    db.flush()
+    if notification.finished_at:
+        escalate_notification(db, notification)
+    return notification
+
+def escalate_notification(db, notification):
+    if notification.parent_id or notification.duty_source != "schedule" or notification.status == "CONFIRMED":
+        return
+    if db.scalar(select(NotificationRow.id).where(NotificationRow.parent_id == notification.id)):
+        return
+    default = db.get(DefaultDutyRow, 1)
+    target = db.get(EmployeeRow, default.employee_id) if default else None
+    if target and target.id == notification.employee_id:
+        return  # The same person must not be called twice as their own fallback.
+    child = NotificationRow(incident_id=notification.incident_id, parent_id=notification.id, duty_source="default")
+    if target:
+        child.employee_id = target.id
+        child.employee_name = " ".join(filter(None, [target.last_name, target.first_name, target.middle_name]))
+        child.phone_number = target.mobile_phone
+        child.sip_extension = target.sip_extension
+    if not target or not target.sip_extension:
+        child.status = "FAILED"
+        child.last_error = "Эскалация невозможна: у дежурного по умолчанию отсутствует SIP-номер" if target else "Эскалация невозможна: дежурный по умолчанию не назначен"
+        child.finished_at = datetime.now(timezone.utc)
+    db.add(child)
+
 
 def create_incident(db, data):
     now = datetime.now(timezone.utc)
@@ -79,7 +127,9 @@ def create_incident(db, data):
     db.add(row)
     db.flush()
     db.add(IncidentEventRow(incident_id=row.id, severity=row.severity, occurred_at=now))
-    commit(db)  # Incident and its event are saved atomically.
+    if row.severity == "CRITICAL":
+        queue_notification(db, row)
+    commit(db)  # Incident, event and notification are saved atomically.
     return row
 
 def incident(db, incident_id):
@@ -110,6 +160,8 @@ def update_employee(db, employee_id, patch):
     phones = [data.work_phone, data.mobile_phone]
     if db.scalar(select(EmployeeRow.id).where(EmployeeRow.id != row.id, or_(EmployeeRow.work_phone.in_(phones), EmployeeRow.mobile_phone.in_(phones)))):
         raise HTTPException(409, "Телефон уже зарегистрирован")
+    if data.sip_extension and db.scalar(select(EmployeeRow.id).where(EmployeeRow.id != row.id, EmployeeRow.sip_extension == data.sip_extension)):
+        raise HTTPException(409, "Внутренний SIP-номер уже зарегистрирован")
     default = db.get(DefaultDutyRow, 1)
     if default and default.employee_id == row.id and data.role != Role.SHIFT_LEAD:
         raise HTTPException(409, "Сначала измените дежурного по умолчанию")
@@ -182,6 +234,18 @@ def update_incident(db, incident_id, patch):
 
 def delete_incident(db, incident_id):
     row = locked_incident(db, incident_id)
+    if db.scalar(select(NotificationRow.id).where(NotificationRow.incident_id == row.id, NotificationRow.finished_at.is_(None))):
+        raise HTTPException(409, "Дождитесь завершения телефонного оповещения")
+    db.execute(delete(NotificationRow).where(NotificationRow.incident_id == row.id))
     db.execute(delete(IncidentEventRow).where(IncidentEventRow.incident_id == row.id))
     db.delete(row)
     commit(db)
+
+
+def retry_notification(db, incident_id):
+    row = locked_incident(db, incident_id)
+    if db.scalar(select(NotificationRow.id).where(NotificationRow.incident_id == row.id, NotificationRow.finished_at.is_(None))):
+        raise HTTPException(409, "Оповещение уже выполняется")
+    notification = queue_notification(db, row)
+    commit(db)
+    return notification

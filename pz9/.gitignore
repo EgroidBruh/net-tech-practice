@@ -1,3 +1,10 @@
 __pycache__/
 *__pycache__*
-
+.env
+.venv/
+.pytest_cache/
+*.sqlite3*
+README.md
+tests/*
+pytest.ini
+freeswitch/conf/directory/default/employee-*.xml

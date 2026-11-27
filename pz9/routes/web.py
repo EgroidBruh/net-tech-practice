@@ -14,7 +14,7 @@ from database import get_db
 from models.create_employee import EmployeeCreate, Role
 from models.current_duty import ShiftCreate, DefaultDuty
 from models.register_incident import IncidentCreate, Severity
-from models.tables import EmployeeRow, ShiftRow, IncidentRow, IncidentEventRow, DefaultDutyRow
+from models.tables import EmployeeRow, ShiftRow, IncidentRow, IncidentEventRow, DefaultDutyRow, NotificationRow
 import services
 
 router = APIRouter(include_in_schema=False)
@@ -66,6 +66,8 @@ async def submit(action: str, request: Request, db: Session = Depends(get_db)):
         try:
             if action == "employees" and not data.get("middle_name", "").strip():
                 data["middle_name"] = None
+            if action == "employees" and not data.get("sip_extension", "").strip():
+                data["sip_extension"] = None
             if action == "shifts":
                 for field in ("start_time", "end_time"):
                     parsed = datetime.fromisoformat(data.get(field, ""))
@@ -88,4 +90,5 @@ async def submit(action: str, request: Request, db: Session = Depends(get_db)):
 def incident_detail(incident_id: UUID, request: Request, db: Session = Depends(get_db)):
     row = services.incident(db, incident_id)
     events = db.scalars(select(IncidentEventRow).where(IncidentEventRow.incident_id == incident_id)).all()
-    return templates.TemplateResponse(request=request, name="detail.html", context=dict(page="incidents", incident=row, events=events, timezone=settings.ui_timezone))
+    calls = db.scalars(select(NotificationRow).where(NotificationRow.incident_id == incident_id).order_by(NotificationRow.created_at)).all()
+    return templates.TemplateResponse(request=request, name="detail.html", context=dict(page="incidents", incident=row, events=events, calls=calls, timezone=settings.ui_timezone))

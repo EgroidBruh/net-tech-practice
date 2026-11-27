@@ -40,5 +40,6 @@ class CurrentDuty(BaseModel):
     employee_id: UUID
     name: str
     phone_number: str
+    sip_extension: str | None = None
     source: Literal["schedule", "default"]
     resolved_at: datetime

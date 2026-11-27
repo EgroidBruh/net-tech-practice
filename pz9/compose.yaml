@@ -1,4 +1,9 @@
 name: duty-mvp
+x-app-environment: &app-environment
+  DATABASE_URL: postgresql+psycopg://duty:${POSTGRES_PASSWORD:-duty_dev_password}@db:5432/duty
+  UI_TIMEZONE: ${UI_TIMEZONE:-Asia/Yekaterinburg}
+  TELEPHONY_URL: http://telephony:8001
+  TELEPHONY_TOKEN: ${TELEPHONY_TOKEN:-local-development-token}
 services:
   db:
     image: postgres:17-alpine
@@ -14,15 +19,78 @@ services:
       timeout: 5s
       retries: 10
   app:
+    image: duty-mvp-app
     build: .
-    environment:
-      DATABASE_URL: postgresql+psycopg://duty:${POSTGRES_PASSWORD:-duty_dev_password}@db:5432/duty
-      UI_TIMEZONE: ${UI_TIMEZONE:-Asia/Yekaterinburg}
+    environment: *app-environment
     depends_on:
       db:
         condition: service_healthy
     ports:
       - "127.0.0.1:8000:8000"
     command: ["sh", "-c", "python -m database && exec uvicorn main:app --host 0.0.0.0 --port 8000"]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/openapi.json')"]
+      interval: 5s
+      timeout: 3s
+      retries: 15
+  notifications:
+    image: duty-mvp-app
+    environment: *app-environment
+    command: ["python", "-m", "notifications"]
+    restart: unless-stopped
+    depends_on:
+      app:
+        condition: service_healthy
+      telephony:
+        condition: service_healthy
+  telephony:
+    build:
+      context: .
+      dockerfile: telephony/Dockerfile
+    environment:
+      TELEPHONY_TOKEN: ${TELEPHONY_TOKEN:-local-development-token}
+      ESL_HOST: freeswitch
+      ESL_PASSWORD: ${ESL_PASSWORD:-local-esl-password}
+      SIP_DOMAIN: ${SIP_DOMAIN:-localhost}
+      ORIGINATE_TIMEOUT: ${ORIGINATE_TIMEOUT:-30}
+      ANSWERED_CALL_DURATION: ${ANSWERED_CALL_DURATION:-15}
+      CALL_DATABASE: /data/calls.sqlite3
+      SIP_DIRECTORY: /directory
+    ports:
+      - "127.0.0.1:8001:8001"
+    volumes:
+      - telephony_data:/data
+      - ./freeswitch/conf/directory/default:/directory
+    restart: unless-stopped
+    depends_on:
+      freeswitch:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8001/health')"]
+      interval: 5s
+      timeout: 3s
+      retries: 15
+  freeswitch:
+    image: safarov/freeswitch:1.10.12
+    entrypoint: ["/bin/sh", "/opt/duty/entrypoint.sh"]
+    environment:
+      ESL_PASSWORD: ${ESL_PASSWORD:-local-esl-password}
+      SIP_PASSWORD: ${SIP_PASSWORD:-local-sip-password}
+      SIP_DOMAIN: ${SIP_DOMAIN:-localhost}
+      FREESWITCH_EXTERNAL_IP: ${FREESWITCH_EXTERNAL_IP:-127.0.0.1}
+    volumes:
+      - ./freeswitch:/opt/duty:ro
+      - ./freeswitch/conf/directory/default:/etc/freeswitch/directory/default:ro
+    ports:
+      - "${SIP_BIND_IP:-127.0.0.1}:5060:5060/udp"
+      - "${SIP_BIND_IP:-127.0.0.1}:5060:5060/tcp"
+      - "${SIP_BIND_IP:-127.0.0.1}:16384-16404:16384-16404/udp"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "fs_cli -H 127.0.0.1 -p \"$$ESL_PASSWORD\" -x status | grep -q '^UP'"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
 volumes:
   postgres_data:
+  telephony_data:

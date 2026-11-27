@@ -4,7 +4,8 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 from database import get_db
 from models.register_incident import Incident, IncidentCreate, IncidentCreatedEvent, IncidentPatch
-from models.tables import IncidentRow, IncidentEventRow
+from models.tables import IncidentRow, IncidentEventRow, NotificationRow
+from models.notification import Notification
 import services
 router = APIRouter(prefix="/incidents", tags=["Инциденты"])
 
@@ -33,3 +34,14 @@ def delete_incident(incident_id: UUID, db: Session = Depends(get_db)):
 def list_incident_events(incident_id: UUID, db: Session = Depends(get_db)):
     services.incident(db, incident_id)
     return db.scalars(select(IncidentEventRow).where(IncidentEventRow.incident_id == incident_id).order_by(IncidentEventRow.occurred_at)).all()
+
+
+@router.get("/{incident_id}/calls", response_model=list[Notification], summary="История телефонных оповещений")
+def list_calls(incident_id: UUID, db: Session = Depends(get_db)):
+    services.incident(db, incident_id)
+    return db.scalars(select(NotificationRow).where(NotificationRow.incident_id == incident_id).order_by(NotificationRow.created_at)).all()
+
+
+@router.post("/{incident_id}/calls", response_model=Notification, status_code=201, summary="Повторить звонок текущему дежурному")
+def retry_call(incident_id: UUID, db: Session = Depends(get_db)):
+    return services.retry_notification(db, incident_id)
